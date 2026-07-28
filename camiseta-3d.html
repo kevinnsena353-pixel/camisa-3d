@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atelier · Camiseta 3D</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<style>
+  :root{
+    --ink:#17140F; --panel:#211E19; --panel-2:#2A2620;
+    --paper:#F1ECE1; --paper-dim:#cfc8b6; --accent:#E8B23A; --accent-2:#C4402F;
+    --muted:#8A8377; --line: rgba(241,236,225,0.12);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{background:var(--ink);color:var(--paper);font-family:'Inter',sans-serif;}
+  .label-caps{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);}
+  header{padding:22px clamp(16px,4vw,40px);border-bottom:1px solid var(--line);}
+  .brand{font-family:'Bebas Neue',sans-serif;font-size:clamp(24px,4vw,34px);}
+  .brand span{color:var(--accent);}
+  .wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 78px);}
+  @media (max-width:860px){.wrap{grid-template-columns:1fr;}}
+  .panel{border-right:1px solid var(--line);padding:24px 22px;display:flex;flex-direction:column;gap:22px;overflow-y:auto;}
+  .group-title{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .group-title::before{content:"";width:6px;height:6px;background:var(--accent);border-radius:50%;display:inline-block;}
+  .swatches{display:flex;flex-wrap:wrap;gap:9px;}
+  .swatch{width:30px;height:30px;border-radius:50%;border:2px solid transparent;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.3);}
+  .swatch.active{border-color:var(--accent);}
+  .sizes{display:flex;gap:7px;flex-wrap:wrap;}
+  .size-btn{font-family:'JetBrains Mono',monospace;font-size:12px;width:44px;padding:8px 0;text-align:center;background:transparent;border:1px solid var(--line);color:var(--paper-dim);cursor:pointer;border-radius:4px;}
+  .size-btn.active{background:var(--accent);border-color:var(--accent);color:var(--ink);font-weight:700;}
+  .tabs{display:flex;gap:6px;background:var(--panel-2);padding:4px;border-radius:999px;}
+  .tab{flex:1;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:8px 0;border:none;border-radius:999px;background:transparent;color:var(--muted);cursor:pointer;}
+  .tab.active{background:var(--accent);color:var(--ink);font-weight:700;}
+  textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--paper);padding:9px 10px;border-radius:4px;font-family:'Inter',sans-serif;font-size:13px;resize:vertical;}
+  input[type=range]{width:100%;accent-color:var(--accent);}
+  input[type=color]{width:100%;height:34px;border:none;background:none;padding:0;cursor:pointer;}
+  input[type=file]{display:none;}
+  .btn{font-size:13px;font-weight:600;padding:10px 14px;border-radius:4px;border:1px solid var(--line);background:var(--panel-2);color:var(--paper);cursor:pointer;width:100%;}
+  .btn:hover{border-color:var(--accent);}
+  .btn.danger{color:var(--accent-2);}
+  .row{display:flex;flex-direction:column;gap:8px;}
+  .hint{font-size:12px;color:var(--muted);line-height:1.5;}
+  .stage-col{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:14px;position:relative;}
+  #viewport{width:100%;max-width:560px;aspect-ratio:1/1;border:1px solid var(--line);border-radius:8px;background:radial-gradient(circle at 40% 30%, #2b2820, #14120e 75%);cursor:grab;}
+  #viewport:active{cursor:grabbing;}
+  .viewport-hint{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;}
+  .status{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);margin-top:6px;}
+  .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(23,20,15,0.7);font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.08em;color:var(--accent);border-radius:8px;pointer-events:none;}
+  .loading.hidden{display:none;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">ATELIER <span>/</span> 3D</div>
+  <div class="label-caps">Mockup tridimensional · Modelo GLTF</div>
+</header>
+
+<div class="wrap">
+  <aside class="panel">
+
+    <div>
+      <div class="group-title">Color de tela</div>
+      <div class="swatches" id="swatches"></div>
+    </div>
+
+    <div>
+      <div class="group-title">Talla</div>
+      <div class="sizes" id="sizes"></div>
+    </div>
+
+    <div>
+      <div class="group-title">Diseño del pecho</div>
+      <div class="tabs" style="margin-bottom:10px;">
+        <button class="tab active" data-mode="text">Texto</button>
+        <button class="tab" data-mode="image">Imagen</button>
+      </div>
+
+      <div id="modeText" class="row">
+        <textarea id="textInput" rows="2">TU MARCA</textarea>
+        <div class="row">
+          <label class="hint">Color del texto</label>
+          <input type="color" id="textColor" value="#f4f1e9">
+        </div>
+        <div class="row">
+          <label class="hint">Tamaño</label>
+          <input type="range" id="textSize" min="24" max="90" value="52">
+        </div>
+      </div>
+
+      <div id="modeImage" class="row" style="display:none;">
+        <button class="btn" id="btnUpload">Subir imagen</button>
+        <input type="file" id="fileInput" accept="image/*">
+      </div>
+
+      <div class="row">
+        <label class="hint">Tamaño del diseño</label>
+        <input type="range" id="designScale" min="0.4" max="2.2" step="0.05" value="1">
+      </div>
+      <div class="row">
+        <label class="hint">Posición X del diseño</label>
+        <input type="range" id="designOffsetX" min="-300" max="300" step="1" value="0">
+      </div>
+      <div class="row">
+        <label class="hint">Posición Y del diseño</label>
+        <input type="range" id="designOffsetY" min="-300" max="300" step="1" value="0">
+      </div>
+      <div class="row">
+        <label class="hint">Tamaño de la camisa</label>
+        <input type="range" id="modelScale" min="0.6" max="2.2" step="0.05" value="1">
+      </div>
+      <div class="row">
+        <label class="hint">Rotación del diseño</label>
+        <input type="range" id="designRotation" min="-180" max="180" step="1" value="0">
+      </div>
+
+      <button class="btn danger" id="btnClear" style="margin-top:10px;">Quitar diseño</button>
+    </div>
+
+    <div class="hint">
+      Arrastra para rotar · Rueda para zoom.<br>
+      El diseño se aplica como textura sobre los materiales del modelo.
+    </div>
+
+    <div class="status" id="modelStatus">Cargando modelo…</div>
+  </aside>
+
+  <section class="stage-col">
+    <div style="position:relative;width:100%;max-width:560px;">
+      <canvas id="viewport"></canvas>
+      <div class="loading" id="loadingOverlay">CARGANDO GLB…</div>
+    </div>
+    <div class="viewport-hint">arrastra para rotar · scroll para zoom</div>
+  </section>
+</div>
+
+<script>
+(function(){
+  /* ═══════════════════════════════════════════════════════════
+     ★★★  CAMBIA SOLO ESTA LÍNEA  ★★★
+     Pon aquí el nombre de tu archivo .glb (debe estar en la
+     misma carpeta que este HTML) o una URL completa.
+  ═══════════════════════════════════════════════════════════ */
+  const MODEL_URL = './primera-camisa/source/Primera.glb';
+  /* ═══════════════════════════════════════════════════════════ */
+
+
+  const COLORS = ['#161513','#f4f1e9','#8d8a82','#20304d','#33452f','#b5623c','#c99a2e','#5f2430'];
+  const SIZES  = ['XS','S','M','L','XL','XXL'];
+  const SIZE_SCALE = {
+    XS: 0.88, S: 0.94, M: 1.00, L: 1.08, XL: 1.16, XXL: 1.25
+  };
+
+  let state = { color: COLORS[0], size: 'M', mode: 'text', designScale: 1, designRotation: 0, designOffsetX: 0, designOffsetY: 0, modelScale: 1 };
+  let currentRoot = null;
+  let baseScale = 1;
+  let uploadedImg = null;
+  let designCanvas, dctx, designTexture;
+
+  /* ───── Three.js ───── */
+  const canvas   = document.getElementById('viewport');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
+
+  const scene  = new THREE.Scene();
+  scene.background = new THREE.Color(0x14120e);
+  const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 1000);
+  camera.position.set(0, 0, 260);
+  camera.lookAt(0, 0, 0);
+
+  scene.add(new THREE.AmbientLight(0xfff2df, 0.75));
+  const key  = new THREE.DirectionalLight(0xfff6e8, 1.2);  key.position.set(130, 190, 160); scene.add(key);
+  const rim  = new THREE.DirectionalLight(0xffe6b0, 0.45); rim.position.set(-150, 70, -130); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x3a4a6b, 0.35); fill.position.set(-90, 50, 150);  scene.add(fill);
+
+  /* ───── Canvas de diseño ───── */
+  designCanvas = document.createElement('canvas');
+  designCanvas.width  = 1024;
+  designCanvas.height = 1024;
+  dctx = designCanvas.getContext('2d');
+  designTexture = new THREE.CanvasTexture(designCanvas);
+  designTexture.anisotropy = 8;
+  designTexture.flipY = false;
+
+  /* ───── Cargar el modelo GLB ───── */
+  const loader = new THREE.GLTFLoader();
+  const statusEl = document.getElementById('modelStatus');
+  const loadingEl = document.getElementById('loadingOverlay');
+
+  loader.load(
+    MODEL_URL,
+    (gltf) => {
+      const model = gltf.scene;
+      const group = new THREE.Group();
+
+      const box = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3();
+      const center = new THREE.Vector3();
+      box.getSize(size);
+      box.getCenter(center);
+
+      model.position.set(-center.x, -center.y, -center.z);
+      model.rotation.set(0, 0, 0);
+
+      const targetH = 180;
+      baseScale = targetH / Math.max(size.y, 0.001);
+      group.scale.setScalar(baseScale);
+      group.add(model);
+
+      currentRoot = group;
+      scene.add(currentRoot);
+
+      applyColor(state.color);
+      applySize(state.size);
+      redrawDesign();
+
+      statusEl.textContent = 'Modelo cargado: ' + MODEL_URL.split('/').pop();
+      loadingEl.classList.add('hidden');
+    },
+    (xhr) => {
+      if (xhr.total) {
+        const pct = Math.round((xhr.loaded / xhr.total) * 100);
+        statusEl.textContent = 'Cargando… ' + pct + '%';
+      }
+    },
+    (err) => {
+      console.error(err);
+      statusEl.textContent = 'ERROR: no se pudo cargar ' + MODEL_URL;
+      loadingEl.textContent = 'ERROR AL CARGAR EL GLB';
+      loadingEl.style.color = '#C4402F';
+    }
+  );
+
+  /* ───── Aplicar color ───── */
+  function applyColor(hex) {
+    if (!currentRoot) return;
+    currentRoot.traverse((child) => {
+      if (!child.isMesh) return;
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach(mat => {
+        if (!mat) return;
+        if (mat.color) mat.color.set(hex);
+        if (mat.emissive) mat.emissive.set(0x000000);
+        if (mat.metalness !== undefined) mat.metalness = 0.02;
+        if (mat.roughness !== undefined) mat.roughness = 0.78;
+        mat.transparent = false;
+        mat.opacity = 1;
+        mat.alphaTest = 0;
+        mat.depthWrite = true;
+        mat.side = THREE.DoubleSide;
+        mat.needsUpdate = true;
+      });
+    });
+  }
+
+  /* ───── Aplicar talla ───── */
+  function applySize(sizeKey) {
+    if (!currentRoot) return;
+    const sizeFactor = SIZE_SCALE[sizeKey] || 1;
+    const factor = (state.modelScale || 1) * sizeFactor;
+    currentRoot.scale.setScalar(baseScale * factor);
+  }
+
+  /* ───── Aplicar textura de diseño ───── */
+  function applyDesignTexture() {
+    if (!currentRoot) return;
+    currentRoot.traverse((child) => {
+      if (!child.isMesh) return;
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach(mat => {
+        if (!mat) return;
+        mat.map = designTexture;
+        mat.transparent = false;
+        mat.opacity = 1;
+        mat.alphaTest = 0;
+        mat.depthWrite = true;
+        mat.needsUpdate = true;
+      });
+    });
+  }
+
+  /* ───── Redibujar diseño ───── */
+  function redrawDesign() {
+    dctx.clearRect(0, 0, designCanvas.width, designCanvas.height);
+
+    dctx.fillStyle = state.color;
+    dctx.fillRect(0, 0, designCanvas.width, designCanvas.height);
+
+    const scale = state.designScale;
+    const rotation = (state.designRotation * Math.PI) / 180;
+    const cx = designCanvas.width / 2 + state.designOffsetX;
+    const cy = designCanvas.height / 2 + state.designOffsetY;
+
+    dctx.save();
+    dctx.translate(cx, cy);
+    dctx.rotate(rotation);
+    dctx.scale(scale, scale);
+
+    if (state.mode === 'text') {
+      const text  = document.getElementById('textInput').value || '';
+      const color = document.getElementById('textColor').value;
+      const size  = +document.getElementById('textSize').value * 2;
+
+      if (text.trim()) {
+        dctx.fillStyle    = color;
+        dctx.textAlign    = 'center';
+        dctx.textBaseline = 'middle';
+        dctx.font         = `700 ${size}px Inter, system-ui, sans-serif`;
+
+        const lines  = text.split('\n');
+        const lh     = size * 1.2;
+        const startY = -(lines.length - 1) * lh / 2;
+
+        lines.forEach((line, i) => {
+          dctx.fillText(line, 0, startY + i * lh, designCanvas.width * 0.85 / scale);
+        });
+      }
+    } else if (uploadedImg) {
+      const maxW  = designCanvas.width  * 0.65 / scale;
+      const maxH  = designCanvas.height * 0.65 / scale;
+      const ratio = Math.min(maxW / uploadedImg.width, maxH / uploadedImg.height);
+      const w = uploadedImg.width * ratio;
+      const h = uploadedImg.height * ratio;
+      dctx.drawImage(uploadedImg, -w / 2, -h / 2, w, h);
+    }
+
+    dctx.restore();
+
+    designTexture.needsUpdate = true;
+    applyDesignTexture();
+  }
+
+  /* ───── UI ───── */
+  const swatchesHost = document.getElementById('swatches');
+  COLORS.forEach(hex => {
+    const el = document.createElement('div');
+    el.className = 'swatch' + (hex === state.color ? ' active' : '');
+    el.style.background = hex;
+    el.addEventListener('click', () => {
+      state.color = hex;
+      applyColor(hex);
+      Array.from(swatchesHost.children).forEach(c => c.classList.toggle('active', c === el));
+    });
+    swatchesHost.appendChild(el);
+  });
+
+  const sizesHost = document.getElementById('sizes');
+  SIZES.forEach(s => {
+    const b = document.createElement('button');
+    b.className = 'size-btn' + (s === state.size ? ' active' : '');
+    b.textContent = s;
+    b.addEventListener('click', () => {
+      state.size = s;
+      state.modelScale = SIZE_SCALE[s];
+      applySize(s);
+      Array.from(sizesHost.children).forEach(c => c.classList.toggle('active', c === b));
+    });
+    sizesHost.appendChild(b);
+  });
+
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      state.mode = tab.dataset.mode;
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+      document.getElementById('modeText').style.display  = state.mode === 'text'  ? 'flex' : 'none';
+      document.getElementById('modeImage').style.display = state.mode === 'image' ? 'flex' : 'none';
+      redrawDesign();
+    });
+  });
+
+  ['textInput', 'textColor', 'textSize', 'designScale', 'designRotation', 'designOffsetX', 'designOffsetY', 'modelScale'].forEach(id => {
+    document.getElementById(id).addEventListener('input', (e) => {
+      if (id === 'designScale') state.designScale = +e.target.value;
+      if (id === 'designRotation') state.designRotation = +e.target.value;
+      if (id === 'designOffsetX') state.designOffsetX = +e.target.value;
+      if (id === 'designOffsetY') state.designOffsetY = +e.target.value;
+      if (id === 'modelScale') {
+        state.modelScale = +e.target.value;
+        applySize(state.size);
+      }
+      redrawDesign();
+    });
+  });
+
+  document.getElementById('btnUpload').addEventListener('click', () => {
+    document.getElementById('fileInput').click();
+  });
+  document.getElementById('fileInput').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => { uploadedImg = img; redrawDesign(); };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  });
+
+  document.getElementById('btnClear').addEventListener('click', () => {
+    uploadedImg = null;
+    document.getElementById('textInput').value = '';
+    redrawDesign();
+  });
+
+  /* ───── Controles ───── */
+  let rotY = 0.35, rotX = 0.06, dragging = false, lastX = 0, lastY = 0;
+  let dist = 270, autoSpin = true;
+
+  canvas.addEventListener('pointerdown', e => {
+    dragging = true; autoSpin = false;
+    lastX = e.clientX; lastY = e.clientY;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    rotY += (e.clientX - lastX) * 0.008;
+    rotX  = Math.max(-0.35, Math.min(0.4, rotX + (e.clientY - lastY) * 0.006));
+    lastX = e.clientX; lastY = e.clientY;
+  });
+  window.addEventListener('pointerup', () => dragging = false);
+
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    dist = Math.max(150, Math.min(450, dist + e.deltaY * 0.28));
+  }, { passive: false });
+
+  function resize() {
+    const r = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio, 2);
+    canvas.width  = r.width * dpr;
+    canvas.height = r.height * dpr;
+    renderer.setSize(r.width, r.height, false);
+    camera.aspect = r.width / r.height;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function animate() {
+    requestAnimationFrame(animate);
+    if (autoSpin) rotY += 0.002;
+    if (currentRoot) {
+      currentRoot.rotation.y = rotY;
+      currentRoot.rotation.x = rotX;
+    }
+    camera.position.set(0, 0, dist);
+    camera.lookAt(0, 0, 0);
+    renderer.render(scene, camera);
+  }
+  animate();
+})();
+</script>
+</body>
+</html>
